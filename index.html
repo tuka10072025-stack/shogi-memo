@@ -1,0 +1,424 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#f6f3ee" />
+  <title>将棋メモ</title>
+  <style>
+    :root{
+      --bg:#f6f3ee;
+      --card:#ffffff;
+      --text:#222;
+      --sub:#777;
+      --line:#e7e1d7;
+      --accent:#7a5c3a;
+      --accent2:#efe7dc;
+      --danger:#b84a4a;
+      --shadow:0 10px 28px rgba(65,45,25,.08);
+    }
+    *{box-sizing:border-box}
+    html,body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Yu Gothic",sans-serif}
+    body{min-height:100vh}
+    button,input,textarea,select{font:inherit}
+    button{cursor:pointer}
+    .app{max-width:720px;margin:0 auto;padding:env(safe-area-inset-top) 14px calc(24px + env(safe-area-inset-bottom))}
+    header{padding:18px 4px 10px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+    h1{margin:0;font-size:24px;letter-spacing:.02em}
+    .count{font-size:13px;color:var(--sub)}
+    .toolbar{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:8px 0 16px}
+    .btn{border:0;border-radius:14px;padding:14px 12px;background:var(--card);box-shadow:var(--shadow);font-weight:700;color:var(--text)}
+    .btn.primary{background:var(--accent);color:#fff}
+    .btn.soft{background:var(--accent2);color:#5d432b}
+    .btn.danger{background:#fff1f1;color:var(--danger)}
+    .search{margin-bottom:14px}
+    .search input{width:100%;border:1px solid var(--line);border-radius:14px;background:#fff;padding:13px 14px;outline:none}
+    .cards{display:grid;gap:12px}
+    .card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:12px;box-shadow:var(--shadow)}
+    .cardtop{display:flex;gap:12px;align-items:flex-start}
+    .thumb{width:88px;height:88px;border-radius:12px;background:#eee;object-fit:cover;flex:none}
+    .emptythumb{width:88px;height:88px;border-radius:12px;background:#f0ece6;display:grid;place-items:center;color:#9a8b78;font-size:12px;flex:none}
+    .meta{min-width:0;flex:1}
+    .date{font-size:12px;color:var(--sub);margin-bottom:4px}
+    .title{font-weight:800;line-height:1.45}
+    .mini{margin-top:8px;font-size:13px;color:#555;line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+    .tags{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+    .tag{font-size:11px;padding:5px 8px;border-radius:999px;background:var(--accent2);color:#644a32}
+    .empty{padding:44px 18px;text-align:center;color:var(--sub)}
+    .modal{position:fixed;inset:0;background:rgba(0,0,0,.38);display:none;z-index:50;overflow:auto}
+    .modal.show{display:block}
+    .sheet{max-width:720px;margin:28px auto 0;background:var(--bg);min-height:calc(100vh - 28px);border-radius:24px 24px 0 0;padding:18px 14px calc(28px + env(safe-area-inset-bottom))}
+    .sheethead{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px}
+    .sheethead h2{margin:0;font-size:20px}
+    .close{border:0;background:#fff;border-radius:12px;padding:10px 12px}
+    .field{margin:12px 0}
+    .field label{display:block;font-size:13px;font-weight:700;margin:0 0 7px}
+    .field input,.field textarea,.field select{width:100%;border:1px solid var(--line);border-radius:13px;background:#fff;padding:12px;outline:none}
+    textarea{min-height:82px;resize:vertical}
+    .hint{font-size:12px;color:var(--sub);margin-top:5px}
+    .imgwrap{background:#fff;border:1px solid var(--line);border-radius:16px;padding:10px}
+    .preview{width:100%;max-height:440px;object-fit:contain;border-radius:12px;background:#f0ede8;display:none}
+    .preview.show{display:block}
+    .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .savebar{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:18px}
+    .viewer{position:fixed;inset:0;background:#000;display:none;z-index:100;align-items:center;justify-content:center}
+    .viewer.show{display:flex}
+    .viewer img{max-width:100%;max-height:100%;object-fit:contain}
+    .viewer button{position:absolute;top:calc(12px + env(safe-area-inset-top));right:12px;border:0;border-radius:999px;background:rgba(255,255,255,.88);padding:10px 13px;font-weight:700}
+    @media (max-width:420px){
+      .thumb,.emptythumb{width:76px;height:76px}
+      .toolbar{grid-template-columns:1fr 1fr}
+    }
+  </style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div>
+      <h1>将棋メモ</h1>
+      <div class="count" id="count">0件</div>
+    </div>
+    <button class="btn soft" id="exportBtn">バックアップ</button>
+  </header>
+
+  <div class="toolbar">
+    <button class="btn primary" id="newBtn">＋ 新しい反省</button>
+    <button class="btn" id="importBtn">復元</button>
+  </div>
+
+  <div class="search">
+    <input id="searchInput" type="search" placeholder="失敗・次回・タグなどで検索">
+  </div>
+
+  <div class="cards" id="list"></div>
+</div>
+
+<div class="modal" id="modal">
+  <div class="sheet">
+    <div class="sheethead">
+      <h2 id="formTitle">新しい反省</h2>
+      <button class="close" id="closeBtn">閉じる</button>
+    </div>
+
+    <div class="field">
+      <label>局面画像</label>
+      <div class="imgwrap">
+        <input id="imageInput" type="file" accept="image/*">
+        <img id="preview" class="preview" alt="">
+        <div class="hint">ぴよ将棋などの局面スクショを1枚保存できます。</div>
+      </div>
+    </div>
+
+    <div class="row2">
+      <div class="field">
+        <label>対局日</label>
+        <input id="playedAt" type="date">
+      </div>
+      <div class="field">
+        <label>結果</label>
+        <select id="result">
+          <option value="">未設定</option>
+          <option>勝ち</option>
+          <option>負け</option>
+          <option>引き分け</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>実際に指した手</label>
+      <input id="actualMove" placeholder="例：▲5四歩">
+    </div>
+
+    <div class="field">
+      <label>こう指した方が良かった</label>
+      <input id="betterMove" placeholder="例：▲7八玉">
+    </div>
+
+    <div class="field">
+      <label>自分の失敗</label>
+      <textarea id="mistake" placeholder="例：攻めを急ぎすぎた"></textarea>
+    </div>
+
+    <div class="field">
+      <label>次はこうする</label>
+      <textarea id="nextTime" placeholder="例：まず玉を囲ってから攻める"></textarea>
+    </div>
+
+    <div class="field">
+      <label>タグ</label>
+      <input id="tags" placeholder="例：序盤, 攻め急ぎ, 受け">
+      <div class="hint">カンマ区切りで入力</div>
+    </div>
+
+    <div class="savebar">
+      <button class="btn danger" id="deleteBtn" style="display:none">削除</button>
+      <button class="btn primary" id="saveBtn">保存</button>
+    </div>
+  </div>
+</div>
+
+<div class="viewer" id="viewer">
+  <button id="viewerClose">閉じる</button>
+  <img id="viewerImg" alt="">
+</div>
+
+<input id="importFile" type="file" accept=".json,application/json" hidden>
+
+<script>
+const DB_NAME = 'shogiMemoDB';
+const STORE = 'memos';
+let db;
+let editingId = null;
+let currentImageData = '';
+
+const $ = id => document.getElementById(id);
+
+function openDB(){
+  return new Promise((resolve,reject)=>{
+    const req = indexedDB.open(DB_NAME,1);
+    req.onupgradeneeded = e => {
+      const d = e.target.result;
+      if(!d.objectStoreNames.contains(STORE)){
+        d.createObjectStore(STORE,{keyPath:'id'});
+      }
+    };
+    req.onsuccess = e => { db = e.target.result; resolve(db); };
+    req.onerror = () => reject(req.error);
+  });
+}
+
+function tx(mode='readonly'){ return db.transaction(STORE,mode).objectStore(STORE); }
+
+function getAll(){
+  return new Promise((resolve,reject)=>{
+    const r = tx().getAll();
+    r.onsuccess = ()=> resolve(r.result || []);
+    r.onerror = ()=> reject(r.error);
+  });
+}
+function put(item){
+  return new Promise((resolve,reject)=>{
+    const r = tx('readwrite').put(item);
+    r.onsuccess = ()=>resolve();
+    r.onerror = ()=>reject(r.error);
+  });
+}
+function remove(id){
+  return new Promise((resolve,reject)=>{
+    const r = tx('readwrite').delete(id);
+    r.onsuccess = ()=>resolve();
+    r.onerror = ()=>reject(r.error);
+  });
+}
+
+function esc(s=''){
+  return s.replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
+}
+
+function normalizeTags(s){
+  return s.split(/[,、]/).map(v=>v.trim()).filter(Boolean);
+}
+
+async function compressImage(file){
+  const data = await new Promise((resolve,reject)=>{
+    const fr = new FileReader();
+    fr.onload = ()=>resolve(fr.result);
+    fr.onerror = reject;
+    fr.readAsDataURL(file);
+  });
+  const img = await new Promise((resolve,reject)=>{
+    const i = new Image();
+    i.onload = ()=>resolve(i);
+    i.onerror = reject;
+    i.src = data;
+  });
+  const max = 1400;
+  let w = img.width, h = img.height;
+  if(Math.max(w,h)>max){
+    const scale = max/Math.max(w,h);
+    w = Math.round(w*scale); h = Math.round(h*scale);
+  }
+  const c = document.createElement('canvas');
+  c.width=w;c.height=h;
+  c.getContext('2d').drawImage(img,0,0,w,h);
+  return c.toDataURL('image/jpeg',0.78);
+}
+
+function resetForm(){
+  editingId = null;
+  currentImageData = '';
+  $('formTitle').textContent = '新しい反省';
+  $('imageInput').value = '';
+  $('preview').src = '';
+  $('preview').classList.remove('show');
+  $('playedAt').value = new Date().toISOString().slice(0,10);
+  $('result').value = '';
+  $('actualMove').value = '';
+  $('betterMove').value = '';
+  $('mistake').value = '';
+  $('nextTime').value = '';
+  $('tags').value = '';
+  $('deleteBtn').style.display = 'none';
+}
+
+function openModal(){ $('modal').classList.add('show'); document.body.style.overflow='hidden'; }
+function closeModal(){ $('modal').classList.remove('show'); document.body.style.overflow=''; }
+
+async function render(){
+  const all = await getAll();
+  const q = $('searchInput').value.trim().toLowerCase();
+  let items = all.sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0));
+  if(q){
+    items = items.filter(x => [
+      x.actualMove,x.betterMove,x.mistake,x.nextTime,x.result,(x.tags||[]).join(' ')
+    ].join(' ').toLowerCase().includes(q));
+  }
+  $('count').textContent = `${all.length}件`;
+  const list = $('list');
+  if(!items.length){
+    list.innerHTML = `<div class="empty">${q ? '該当するメモがありません' : 'まだ反省メモがありません。<br>「新しい反省」から追加できます。'}</div>`;
+    return;
+  }
+  list.innerHTML = items.map(x=>{
+    const tags = (x.tags||[]).map(t=>`<span class="tag">${esc(t)}</span>`).join('');
+    const date = x.playedAt ? esc(x.playedAt) : '日付未設定';
+    const title = esc(x.mistake || x.actualMove || '反省メモ');
+    const miniParts = [];
+    if(x.actualMove) miniParts.push(`実際：${esc(x.actualMove)}`);
+    if(x.betterMove) miniParts.push(`良かった：${esc(x.betterMove)}`);
+    if(x.nextTime) miniParts.push(`次回：${esc(x.nextTime)}`);
+    const thumb = x.imageData
+      ? `<img class="thumb" src="${x.imageData}" data-view="${x.id}">`
+      : `<div class="emptythumb">局面なし</div>`;
+    return `<div class="card" data-id="${x.id}">
+      <div class="cardtop">
+        ${thumb}
+        <div class="meta">
+          <div class="date">${date}${x.result ? ` ・ ${esc(x.result)}` : ''}</div>
+          <div class="title">${title}</div>
+          <div class="mini">${miniParts.join('<br>')}</div>
+          <div class="tags">${tags}</div>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+
+  list.querySelectorAll('.card').forEach(el=>{
+    el.addEventListener('click', async e=>{
+      if(e.target.matches('[data-view]')) return;
+      const id = el.dataset.id;
+      const all2 = await getAll();
+      const x = all2.find(v=>v.id===id);
+      if(!x) return;
+      editingId = x.id;
+      currentImageData = x.imageData || '';
+      $('formTitle').textContent = '反省メモを編集';
+      $('playedAt').value = x.playedAt || '';
+      $('result').value = x.result || '';
+      $('actualMove').value = x.actualMove || '';
+      $('betterMove').value = x.betterMove || '';
+      $('mistake').value = x.mistake || '';
+      $('nextTime').value = x.nextTime || '';
+      $('tags').value = (x.tags||[]).join(', ');
+      if(currentImageData){
+        $('preview').src=currentImageData;
+        $('preview').classList.add('show');
+      }else{
+        $('preview').src='';
+        $('preview').classList.remove('show');
+      }
+      $('deleteBtn').style.display = 'block';
+      openModal();
+    });
+  });
+
+  list.querySelectorAll('[data-view]').forEach(img=>{
+    img.addEventListener('click', e=>{
+      e.stopPropagation();
+      $('viewerImg').src = img.src;
+      $('viewer').classList.add('show');
+    });
+  });
+}
+
+$('newBtn').addEventListener('click',()=>{resetForm();openModal();});
+$('closeBtn').addEventListener('click',closeModal);
+$('modal').addEventListener('click',e=>{ if(e.target===$('modal')) closeModal(); });
+$('searchInput').addEventListener('input',render);
+
+$('imageInput').addEventListener('change', async ()=>{
+  const f = $('imageInput').files[0];
+  if(!f) return;
+  currentImageData = await compressImage(f);
+  $('preview').src = currentImageData;
+  $('preview').classList.add('show');
+});
+
+$('saveBtn').addEventListener('click', async ()=>{
+  const item = {
+    id: editingId || (crypto.randomUUID ? crypto.randomUUID() : String(Date.now())+Math.random()),
+    playedAt: $('playedAt').value,
+    result: $('result').value,
+    actualMove: $('actualMove').value.trim(),
+    betterMove: $('betterMove').value.trim(),
+    mistake: $('mistake').value.trim(),
+    nextTime: $('nextTime').value.trim(),
+    tags: normalizeTags($('tags').value),
+    imageData: currentImageData,
+    updatedAt: Date.now()
+  };
+  await put(item);
+  closeModal();
+  await render();
+});
+
+$('deleteBtn').addEventListener('click', async ()=>{
+  if(!editingId) return;
+  if(!confirm('この反省メモを削除しますか？')) return;
+  await remove(editingId);
+  closeModal();
+  await render();
+});
+
+$('viewerClose').addEventListener('click',()=>$('viewer').classList.remove('show'));
+$('viewer').addEventListener('click',e=>{if(e.target===$('viewer')) $('viewer').classList.remove('show');});
+
+$('exportBtn').addEventListener('click', async ()=>{
+  const data = await getAll();
+  const blob = new Blob([JSON.stringify({version:1,items:data},null,2)],{type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `shogi-memo-backup-${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+});
+
+$('importBtn').addEventListener('click',()=>$('importFile').click());
+$('importFile').addEventListener('change', async ()=>{
+  const f = $('importFile').files[0];
+  if(!f) return;
+  try{
+    const obj = JSON.parse(await f.text());
+    const items = Array.isArray(obj) ? obj : obj.items;
+    if(!Array.isArray(items)) throw new Error();
+    for(const x of items){
+      if(x && x.id) await put(x);
+    }
+    alert('復元しました');
+    await render();
+  }catch(e){
+    alert('復元できませんでした');
+  }finally{
+    $('importFile').value='';
+  }
+});
+
+(async()=>{
+  await openDB();
+  resetForm();
+  await render();
+})();
+</script>
+</body>
+</html>
