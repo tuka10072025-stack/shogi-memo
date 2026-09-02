@@ -34,7 +34,10 @@
     .close{border:0;background:#fff;border-radius:12px;padding:10px 12px}.field{margin:12px 0}.field label{display:block;font-size:13px;font-weight:700;margin:0 0 7px}
     .field input,.field textarea,.field select{width:100%;border:1px solid var(--line);border-radius:13px;background:#fff;padding:12px;outline:none}
     textarea{min-height:82px;resize:vertical}.hint{font-size:12px;color:var(--sub);margin-top:5px}.imgwrap{background:#fff;border:1px solid var(--line);border-radius:16px;padding:10px}
-    .preview{width:100%;max-height:440px;object-fit:contain;border-radius:12px;background:#f0ede8;display:none}.preview.show{display:block}
+    .image-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+.image-btn{display:flex;align-items:center;justify-content:center;min-height:48px;border:1px solid var(--line);border-radius:12px;background:#fff;color:var(--text);font-weight:700;padding:10px 12px}
+.paste-btn{appearance:none;-webkit-appearance:none}
+.preview{width:100%;max-height:440px;object-fit:contain;border-radius:12px;background:#f0ede8;display:none}.preview.show{display:block}
     .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}.savebar{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:18px}
     .viewer{position:fixed;inset:0;background:#000;display:none;z-index:100;align-items:center;justify-content:center}.viewer.show{display:flex}
     .viewer img{max-width:100%;max-height:100%;object-fit:contain}.viewer button{position:absolute;top:calc(12px + env(safe-area-inset-top));right:12px;border:0;border-radius:999px;background:rgba(255,255,255,.88);padding:10px 13px;font-weight:700}
@@ -47,7 +50,17 @@
 <div class="toolbar"><button class="btn primary" id="newBtn">＋ 新しい反省</button><button class="btn" id="importBtn">復元</button></div>
 <div class="search"><input id="searchInput" type="search" placeholder="失敗・次回・タグなどで検索"></div><div class="cards" id="list"></div></div>
 <div class="modal" id="modal"><div class="sheet"><div class="sheethead"><h2 id="formTitle">新しい反省</h2><button class="close" id="closeBtn">閉じる</button></div>
-<div class="field"><label>局面画像</label><div class="imgwrap"><input id="imageInput" type="file" accept="image/*"><img id="preview" class="preview" alt=""><div class="hint">ぴよ将棋などの局面スクショを1枚保存できます。</div></div></div>
+<div class="field"><label>局面画像</label><div class="imgwrap">
+<div class="image-actions">
+  <label class="image-btn">
+    画像を選択
+    <input id="imageInput" type="file" accept="image/*" hidden>
+  </label>
+  <button type="button" class="image-btn paste-btn" id="pasteImageBtn">画像を貼り付け</button>
+</div>
+<img id="preview" class="preview" alt="">
+<div class="hint">ぴよ将棋などの局面スクショを、写真から選択またはコピーして貼り付けできます。</div>
+</div></div>
 <div class="row2"><div class="field"><label>対局日</label><input id="playedAt" type="date"></div><div class="field"><label>結果</label><select id="result"><option value="">未設定</option><option>勝ち</option><option>負け</option><option>引き分け</option></select></div></div>
 <div class="field"><label>実際に指した手</label><input id="actualMove" placeholder="例：▲5四歩"></div>
 <div class="field"><label>こう指した方が良かった</label><input id="betterMove" placeholder="例：▲7八玉"></div>
@@ -70,6 +83,31 @@ list.querySelectorAll('.card').forEach(el=>el.addEventListener('click',async e=>
 list.querySelectorAll('[data-view]').forEach(img=>img.addEventListener('click',e=>{e.stopPropagation();$('viewerImg').src=img.src;$('viewer').classList.add('show')}))}
 $('newBtn').onclick=()=>{resetForm();openModal()};$('closeBtn').onclick=closeModal;$('modal').onclick=e=>{if(e.target===$('modal'))closeModal()};$('searchInput').oninput=render;
 $('imageInput').onchange=async()=>{const f=$('imageInput').files[0];if(!f)return;currentImageData=await compressImage(f);$('preview').src=currentImageData;$('preview').classList.add('show')};
+
+$('pasteImageBtn').onclick=async()=>{
+  try{
+    if(!navigator.clipboard || !navigator.clipboard.read){
+      alert('この端末では画像の直接貼り付けに対応していません。\n「画像を選択」から追加してください。');
+      return;
+    }
+    const items=await navigator.clipboard.read();
+    let blob=null;
+    for(const item of items){
+      const type=item.types.find(t=>t.startsWith('image/'));
+      if(type){ blob=await item.getType(type); break; }
+    }
+    if(!blob){
+      alert('クリップボードに画像がありません。\n局面画像をコピーしてから、もう一度「画像を貼り付け」を押してください。');
+      return;
+    }
+    const file=new File([blob],'clipboard-image.png',{type:blob.type||'image/png'});
+    currentImageData=await compressImage(file);
+    $('preview').src=currentImageData;
+    $('preview').classList.add('show');
+  }catch(e){
+    alert('画像を貼り付けできませんでした。\nSafariの確認が出た場合は「許可」を選んでください。');
+  }
+};
 $('saveBtn').onclick=async()=>{await put({id:editingId||(crypto.randomUUID?crypto.randomUUID():String(Date.now())+Math.random()),playedAt:$('playedAt').value,result:$('result').value,actualMove:$('actualMove').value.trim(),betterMove:$('betterMove').value.trim(),mistake:$('mistake').value.trim(),nextTime:$('nextTime').value.trim(),tags:normalizeTags($('tags').value),imageData:currentImageData,updatedAt:Date.now()});closeModal();await render()};
 $('deleteBtn').onclick=async()=>{if(!editingId||!confirm('この反省メモを削除しますか？'))return;await remove(editingId);closeModal();await render()};
 $('viewerClose').onclick=()=>$('viewer').classList.remove('show');$('viewer').onclick=e=>{if(e.target===$('viewer'))$('viewer').classList.remove('show')};
